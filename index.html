@@ -2,404 +2,583 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-  <title>Enterprise-Grade Financial Consolidation Dashboard</title>
-  <!-- Tailwind CSS CDN -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flux Analysis Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <link rel="icon" href="https://tailwindui.com/favicon.ico" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    /* Custom Scrollbar for Table */
+    body { font-family: 'Inter', sans-serif; }
     ::-webkit-scrollbar { width: 8px; height: 8px; }
-    ::-webkit-scrollbar-thumb { background: #ced1d4; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     ::-webkit-scrollbar-track { background: #f1f5f9; }
+    .save-pulse { animation: pulse 1.5s ease-in-out 2; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(34, 43, 69, 0.3); }
+      50% { box-shadow: 0 0 0 6px rgba(34, 43, 69, 0); }
+    }
   </style>
 </head>
-<body class="bg-gray-50 text-gray-800 min-h-screen">
-  <!-- DARK HEADER -->
-  <header class="w-full bg-[#222B45] text-white shadow-lg">
-    <div class="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
-      <span class="text-2xl font-semibold tracking-tight">Consolidation &amp; Variance Dashboard</span>
-      <span class="text-sm opacity-70">Enterprise Performance Management Suite</span>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <header class="bg-[#1a1f2e] text-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight">Flux Analysis Dashboard</h1>
+        <p class="text-slate-400 text-sm mt-0.5">Consolidation &amp; variance · FY 2024</p>
+      </div>
+      <div class="flex flex-wrap gap-2" id="toolbar">
+        <button type="button" id="btnSave" class="bg-white text-slate-800 hover:bg-slate-100 px-3 py-2 rounded-md text-sm font-medium border border-slate-200 transition">Save</button>
+        <button type="button" id="btnReset" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-md text-sm font-medium transition">Reset from CSV</button>
+        <button type="button" id="btnExportCsv" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded-md text-sm font-medium transition">Download CSV</button>
+        <button type="button" id="btnExportHtml" class="bg-[#222B45] hover:bg-[#151a30] text-white px-3 py-2 rounded-md text-sm font-medium transition">Download HTML Report</button>
+      </div>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-6 pb-10 -mt-12">
-    <!-- KPIs and VARIANCE CHART -->
-    <section class="flex flex-col md:flex-row gap-6 pt-12">
-      <!-- KPI Cards -->
-      <div class="flex flex-1 gap-6">
-        <div class="bg-white rounded-2xl shadow p-6 min-w-[200px] flex flex-col items-start">
-          <span class="text-xs text-gray-500 uppercase mb-2">Consolidated Global Variance</span>
-          <span id="kpi-variance" class="text-2xl font-semibold text-green-600">+2,150,000</span>
-          <span class="text-xs font-medium text-gray-400 mt-2">USD Favourable</span>
-        </div>
-        <div class="bg-white rounded-2xl shadow p-6 min-w-[200px] flex flex-col items-start">
-          <span class="text-xs text-gray-500 uppercase mb-2">Total Budget (USD)</span>
-          <span id="kpi-budget" class="text-2xl font-semibold text-gray-800">$10,000,000</span>
-        </div>
-        <div class="bg-white rounded-2xl shadow p-6 min-w-[200px] flex flex-col items-start">
-          <span class="text-xs text-gray-500 uppercase mb-2">Total Actuals (USD)</span>
-          <span id="kpi-actuals" class="text-2xl font-semibold text-gray-800">$7,850,000</span>
-        </div>
+  <div id="statusBar" class="hidden max-w-7xl mx-auto px-4 sm:px-6 pt-3 w-full">
+    <p class="text-sm px-3 py-2 rounded-md bg-amber-50 text-amber-900 border border-amber-200" id="statusText"></p>
+  </div>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full flex flex-col gap-6">
+
+    <section class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Variance (USD)</p>
+        <p id="kpi-variance" class="text-2xl font-bold mt-1 tabular-nums text-slate-900">—</p>
+        <p id="kpi-variance-label" class="text-xs text-slate-500 mt-1">Favourable / unfavourable</p>
       </div>
-      <!-- CHART -->
-      <div class="flex-1 bg-white rounded-2xl shadow p-6 flex flex-col items-center min-w-[350px]">
-        <div class="w-full flex justify-between items-center mb-2">
-          <span class="text-sm font-semibold text-gray-600">Variance - By Business Unit</span>
-        </div>
-        <canvas id="varianceChart" height="90"></canvas>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 border-t-[3px] border-t-slate-400">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Budget (USD)</p>
+        <p id="kpi-budget" class="text-2xl font-bold mt-1 tabular-nums text-slate-900">—</p>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5 border-t-[3px] border-t-slate-900">
+        <p class="text-xs font-semibold text-slate-500 uppercase tracking-wide">Total Actuals (USD)</p>
+        <p id="kpi-actuals" class="text-2xl font-bold mt-1 tabular-nums text-slate-900">—</p>
       </div>
     </section>
-    <!-- LINE ITEMS BELOW KPIS -->
-    <section class="mt-6">
-      <div class="bg-white rounded-2xl shadow px-6 py-4">
-        <div class="text-lg font-semibold text-gray-700 mb-1">Snapshot: Key Business Units Impact Breakdown</div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm text-gray-600">
-          <div class="flex items-center gap-2"><span class="font-bold">EMEA Sales:</span> <span class="text-green-600 font-semibold">+$900K</span> Volume, <span class="text-red-600 font-semibold">-$200K</span> FX Loss</div>
-          <div class="flex items-center gap-2"><span class="font-bold">APAC Services:</span> <span class="text-red-600 font-semibold">-$800K</span> Price, <span class="text-green-600 font-semibold">+$400K</span> Timing</div>
-          <div class="flex items-center gap-2"><span class="font-bold">Americas Ops:</span> <span class="text-green-600 font-semibold">+$650K</span> FX Gain, <span class="text-red-600 font-semibold">-$100K</span> Volume</div>
+
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-sm font-semibold text-slate-800">Variance impact</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Positive &amp; negative by business unit</p>
+          </div>
+          <div class="flex gap-3 text-xs text-slate-600">
+            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-[#1a1f2e]"></span> Favourable</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-[#9ca3af]"></span> Unfavourable</span>
+          </div>
         </div>
+        <div class="h-[260px]"><canvas id="varianceChart"></canvas></div>
+      </div>
+      <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-sm font-semibold text-slate-800">Budget vs actuals (USD)</h2>
+            <p class="text-xs text-slate-500 mt-0.5">Grey = budget · Black = actuals</p>
+          </div>
+          <div class="flex gap-3 text-xs text-slate-600">
+            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-[#9ca3af]"></span> Budget</span>
+            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-[#1a1f2e]"></span> Actuals</span>
+          </div>
+        </div>
+        <div class="h-[260px]"><canvas id="comparisonChart"></canvas></div>
       </div>
     </section>
-    <!-- MAIN DATA TABLE -->
-    <section class="mt-8">
-      <div class="bg-white rounded-2xl shadow px-4 py-6">
-        <div class="flex flex-col md:flex-row md:justify-between items-center mb-4 gap-2">
-          <span class="text-lg font-semibold text-gray-700">Business Unit Consolidation Table</span>
-          <button id="exportCSV" class="bg-[#222B45] hover:bg-[#151a30] transition-all duration-100 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow">
-            Export for Audit (CSV)
-          </button>
+
+    <section class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 class="text-base font-semibold text-slate-800">Business unit data</h2>
+          <p class="text-sm text-slate-500 mt-0.5">Loaded from <code class="text-xs bg-slate-100 px-1 py-0.5 rounded">data/consolidation.csv</code> · edits auto-update charts</p>
         </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-[900px] w-full border-collapse text-sm" id="consolidationTable">
-            <thead class="bg-gray-100">
-              <tr class="text-gray-500 uppercase text-xs tracking-tight">
-                <th class="py-2 px-3 text-left">Business Unit</th>
-                <th class="py-2 px-3 text-left">Region</th>
-                <th class="py-2 px-3 text-right">Budget (Local CCY)</th>
-                <th class="py-2 px-3 text-right">Actuals (Local CCY)</th>
-                <th class="py-2 px-3 text-right">FX Impact</th>
-                <th class="py-2 px-3 text-right">Actuals (USD)</th>
-                <th class="py-2 px-3 text-right">Total Variance (USD)</th>
-                <th class="py-2 px-3 text-left">Root Cause</th>
-                <th class="py-2 px-3 text-center"></th>
-              </tr>
-            </thead>
-            <tbody id="tableRows">
-              <!-- Dynamic table rows inserted by JS -->
-            </tbody>
-          </table>
-        </div>
-        <div class="flex mt-4">
-          <button id="addRow" class="bg-blue-600 hover:bg-blue-700 transition-all duration-100 text-white font-semibold py-2 px-4 rounded-lg text-sm shadow">
-            + Add Row
-          </button>
-        </div>
+        <button type="button" id="addRow" class="bg-[#222B45] hover:bg-[#151a30] text-white px-4 py-2 rounded-md text-sm font-medium transition">+ Add row</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-[960px] w-full text-sm" id="consolidationTable">
+          <thead class="bg-slate-50 border-b border-slate-200">
+            <tr class="text-xs uppercase tracking-wide text-slate-600">
+              <th class="py-3 px-4 text-left font-semibold">Business unit</th>
+              <th class="py-3 px-4 text-left font-semibold">Region</th>
+              <th class="py-3 px-4 text-right font-semibold">Budget (local)</th>
+              <th class="py-3 px-4 text-right font-semibold">Actuals (local)</th>
+              <th class="py-3 px-4 text-right font-semibold">FX impact (USD)</th>
+              <th class="py-3 px-4 text-right font-semibold">Actuals (USD)</th>
+              <th class="py-3 px-4 text-right font-semibold">Variance (USD)</th>
+              <th class="py-3 px-4 text-left font-semibold">Root cause</th>
+              <th class="py-3 px-4 w-10"></th>
+            </tr>
+          </thead>
+          <tbody id="tableRows" class="divide-y divide-slate-100"></tbody>
+        </table>
       </div>
     </section>
   </main>
 
+  <footer class="text-xs text-slate-500 text-center py-4 border-t border-slate-200 bg-white">
+  © 2024 Flux Insights · Data persists in this browser after Save
+  </footer>
+
 <script>
-const REGIONS = [
-  { label: "Americas", fx: 1.00, ccy: "USD" },
-  { label: "EMEA", fx: 1.12, ccy: "EUR" },
-  { label: "APAC", fx: 0.74, ccy: "AUD" },
-  { label: "LATAM", fx: 0.19, ccy: "BRL" },
-  { label: "UK&I", fx: 1.30, ccy: "GBP" }
-];
-const ROOT_CAUSES = ["FX", "Volume", "Price", "Timing"];
+(function () {
+  'use strict';
 
-const sampleRows = [
-  {
-    bu: "EMEA Sales",
-    region: "EMEA",
-    budget: 4000000,
-    actuals: 4700000,
-    root: "Volume"
-  },
-  {
-    bu: "APAC Services",
-    region: "APAC",
-    budget: 3500000,
-    actuals: 2700000,
-    root: "Price"
-  },
-  {
-    bu: "Americas Ops",
-    region: "Americas",
-    budget: 2500000,
-    actuals: 3500000,
-    root: "FX"
-  }
-];
+  const STORAGE_KEY = 'flux_dashboard_data_v1';
+  const DATA_CSV = 'data/consolidation.csv';
+  const REGIONS_CSV = 'data/regions.csv';
+  const ROOT_CAUSES = ['FX', 'Volume', 'Price', 'Timing'];
 
-function formatCCY(val, ccy = "USD") {
-  if (typeof val === "undefined" || val === null || isNaN(val)) return "-";
-  return (
-    (ccy === "USD" ? "$" : "") +
-    Number(val).toLocaleString(undefined, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }) +
-    (ccy === "USD" ? "" : " " + ccy)
-  );
-}
+  const CHART_POSITIVE = '#1a1f2e';
+  const CHART_NEGATIVE = '#9ca3af';
+  const CHART_BUDGET = '#9ca3af';
+  const CHART_ACTUAL = '#1a1f2e';
 
-// Dynamically builds a row
-function buildRow(rowIdx, data = {}) {
-  const region = REGIONS.find(r => r.label === (data.region || REGIONS[0].label));
-  return `<tr id="row_${rowIdx}" class="group border-b hover:bg-gray-50">
-    <td class="py-2 px-3">
-      <input type="text" class="bg-transparent border-none w-full focus:ring-0" value="${data.bu || ""}" placeholder="e.g. BU Name" />
-    </td>
-    <td class="py-2 px-3">
-      <select class="bg-gray-100 rounded pr-6 min-w-[89px] region-select">
-        ${REGIONS.map(
-          r =>
-            `<option value="${r.label}" ${r.label === (data.region || REGIONS[0].label) ? "selected" : ""}>${r.label}</option>`
-        ).join("")}
-      </select>
-    </td>
-    <td class="py-2 px-3 text-right">
-      <input type="number" min="0" class="bg-transparent border-none w-28 text-right focus:ring-0" value="${data.budget ?? ""}" placeholder="0" />
-    </td>
-    <td class="py-2 px-3 text-right">
-      <input type="number" min="0" class="bg-transparent border-none w-28 text-right focus:ring-0" value="${data.actuals ?? ""}" placeholder="0" />
-    </td>
-    <td class="py-2 px-3 text-right text-sm fx-impact"></td>
-    <td class="py-2 px-3 text-right text-sm actuals-usd"></td>
-    <td class="py-2 px-3 text-right text-sm font-semibold variance-cell"></td>
-    <td class="py-2 px-3">
-      <select class="bg-gray-100 rounded min-w-[90px] root-cause-select">
-        ${ROOT_CAUSES.map(
-          r =>
-            `<option value="${r}" ${r === (data.root || ROOT_CAUSES[0]) ? "selected" : ""}>${r}</option>`
-        ).join("")}
-      </select>
-    </td>
-    <td class="py-2 px-3 text-center">
-      <button class="removeRow opacity-0 group-hover:opacity-100 transition text-gray-400 hover:text-red-600 text-base" title="Remove">
-        &times;
-      </button>
-    </td>
-  </tr>`;
-}
-
-let tableData = sampleRows.slice();
-
-function renderTable() {
-  document.getElementById("tableRows").innerHTML = "";
-  tableData.forEach((row, idx) => {
-    document.getElementById("tableRows").insertAdjacentHTML(
-      "beforeend",
-      buildRow(idx, row)
-    );
-  });
-  attachRowEvents();
-  recalcAll();
-}
-
-function attachRowEvents() {
-  document.querySelectorAll("#tableRows tr").forEach((rowEl, idx) => {
-    const inputs = rowEl.querySelectorAll("input, select");
-    // Listen for any change in inputs
-    inputs.forEach(input =>
-      input.addEventListener("input", () => {
-        const bu = rowEl.querySelector("input[type=text]").value.trim();
-        const region = rowEl.querySelector("select.region-select").value;
-        const budget = +rowEl.querySelectorAll("input[type=number]")[0].value;
-        const actuals = +rowEl.querySelectorAll("input[type=number]")[1].value;
-        const root = rowEl.querySelector("select.root-cause-select").value;
-        tableData[idx] = { bu, region, budget, actuals, root };
-        recalcAll();
-      })
-    );
-    // Remove row
-    rowEl.querySelector(".removeRow").onclick = () => {
-      tableData.splice(idx, 1);
-      renderTable();
-    };
-  });
-}
-
-function getFX(regionLabel) {
-  const found = REGIONS.find(r => r.label === regionLabel);
-  return found ? found.fx : 1.0;
-}
-function getCCY(regionLabel) {
-  const found = REGIONS.find(r => r.label === regionLabel);
-  return found ? found.ccy : "USD";
-}
-
-function recalcAll() {
-  let totBudgetUSD = 0, totActualsUSD = 0, totVarianceUSD = 0;
-  let varianceChartLabels = [], varianceChartData = [], varianceChartColors = [];
-  document.querySelectorAll("#tableRows tr").forEach((rowEl, idx) => {
-    const { region, budget, actuals } = tableData[idx];
-    const fx = getFX(region);
-    const ccy = getCCY(region);
-    const fxImpact = (actuals * fx) - (actuals * 1.0); // "fx" relative to USD basis, ex: EUR/USD, etc.
-    const actualsUSD = actuals * fx;
-    const budgetUSD = budget * fx;
-    const variance = actualsUSD - budgetUSD;
-
-    // Update FX impact cell
-    rowEl.querySelector(".fx-impact").textContent = formatCCY(fxImpact, "USD");
-    rowEl.querySelector(".fx-impact").classList.toggle(
-      "text-red-600",
-      fxImpact < 0
-    );
-    rowEl.querySelector(".fx-impact").classList.toggle(
-      "text-green-600",
-      fxImpact >= 0
-    );
-    // Actuals USD
-    rowEl.querySelector(".actuals-usd").textContent = formatCCY(actualsUSD, "USD");
-    // Variance cell, color-coded
-    const varianceCell = rowEl.querySelector(".variance-cell");
-    varianceCell.textContent = (variance >= 0 ? "+" : "") + formatCCY(variance, "USD");
-    varianceCell.classList.remove("text-green-600", "text-red-600");
-    varianceCell.classList.add(variance >= 0 ? "text-green-600" : "text-red-600");
-
-    totBudgetUSD += budgetUSD;
-    totActualsUSD += actualsUSD;
-    totVarianceUSD += variance;
-
-    // Chart data
-    varianceChartLabels.push(tableData[idx].bu || `BU ${idx + 1}`);
-    varianceChartData.push(variance);
-    varianceChartColors.push(variance >= 0 ? "#059669" : "#DC2626");
-  });
-
-  // KPIs
-  document.getElementById("kpi-variance").textContent =
-    (totVarianceUSD >= 0 ? "+" : "") +
-    Number(totVarianceUSD.toFixed(0)).toLocaleString() +
-    "";
-  document.getElementById("kpi-variance").className =
-    "text-2xl font-semibold " + (totVarianceUSD >= 0 ? "text-green-600" : "text-red-600");
-  document.getElementById("kpi-budget").textContent =
-    formatCCY(totBudgetUSD, "USD");
-  document.getElementById("kpi-actuals").textContent =
-    formatCCY(totActualsUSD, "USD");
-
-  // Update chart
-  updateVarianceChart(varianceChartLabels, varianceChartData, varianceChartColors);
-}
-
-// Add row event
-document.getElementById("addRow").onclick = () => {
-  tableData.push({
-    bu: "",
-    region: REGIONS[0].label,
-    budget: "",
-    actuals: "",
-    root: ROOT_CAUSES[0]
-  });
-  renderTable();
-};
-function cleanCellForCSV(val) {
-  return typeof val === "undefined" || val === null
-    ? ""
-    : String(val).replace(/[\r\n]+/g, " ").replace(/,/g, "");
-}
-
-document.getElementById("exportCSV").onclick = function () {
-  let csvRows = [
-    [
-      "Business Unit",
-      "Region",
-      "Budget (Local CCY)",
-      "Actuals (Local CCY)",
-      "FX Impact (USD)",
-      "Actuals (USD)",
-      "Variance (USD)",
-      "Root Cause"
-    ]
+  let REGIONS = [
+    { label: 'Americas', fx: 1.0, ccy: 'USD' },
+    { label: 'EMEA', fx: 1.12, ccy: 'EUR' },
+    { label: 'APAC', fx: 0.74, ccy: 'AUD' },
+    { label: 'LATAM', fx: 0.19, ccy: 'BRL' },
+    { label: 'UK&I', fx: 1.3, ccy: 'GBP' },
   ];
-  tableData.forEach(({ bu, region, budget, actuals, root }) => {
-    const fx = getFX(region);
-    const ccy = getCCY(region);
-    const fxImpact = (actuals * fx) - (actuals * 1.0);
-    const actualsUSD = actuals * fx;
-    const budgetUSD = budget * fx;
-    const variance = actualsUSD - budgetUSD;
-    csvRows.push([
-      cleanCellForCSV(bu),
-      cleanCellForCSV(region),
-      formatCCY(budget, ccy),
-      formatCCY(actuals, ccy),
-      formatCCY(fxImpact, "USD"),
-      formatCCY(actualsUSD, "USD"),
-      (variance >= 0 ? "+" : "") + formatCCY(variance, "USD"),
-      cleanCellForCSV(root)
-    ]);
-  });
-  let csvContent = csvRows.map(e => e.join(",")).join("\n");
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  let link = document.createElement("a");
-  link.href = url;
-  link.download = "consolidation_audit_export.csv";
-  document.body.appendChild(link);
-  link.click();
-  setTimeout(() => document.body.removeChild(link), 0);
-};
 
-// Chart.js Bar Chart
-let varianceChart;
-function updateVarianceChart(labels, data, colors) {
-  if (!varianceChart) {
-    const ctx = document.getElementById("varianceChart").getContext("2d");
-    varianceChart = new Chart(ctx, {
-      type: "bar",
+  let tableData = [];
+  let varianceChart = null;
+  let comparisonChart = null;
+  let lastSavedAt = null;
+
+  function showStatus(msg, type) {
+    const bar = document.getElementById('statusBar');
+    const text = document.getElementById('statusText');
+    bar.classList.remove('hidden');
+    text.textContent = msg;
+    text.className = 'text-sm px-3 py-2 rounded-md border ' + (
+      type === 'error' ? 'bg-red-50 text-red-900 border-red-200' :
+      type === 'success' ? 'bg-emerald-50 text-emerald-900 border-emerald-200' :
+      'bg-amber-50 text-amber-900 border-amber-200'
+    );
+  }
+
+  function parseCSV(text) {
+    const lines = text.trim().split(/\r?\n/).filter(Boolean);
+    if (!lines.length) return [];
+    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    return lines.slice(1).map(line => {
+      const values = [];
+      let cur = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') { inQuotes = !inQuotes; continue; }
+        if (ch === ',' && !inQuotes) { values.push(cur.trim()); cur = ''; continue; }
+        cur += ch;
+      }
+      values.push(cur.trim());
+      const row = {};
+      headers.forEach((h, i) => { row[h] = (values[i] || '').replace(/^"|"$/g, ''); });
+      return row;
+    });
+  }
+
+  function csvEscape(val) {
+    const s = String(val == null ? '' : val);
+    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+
+  function rowsToCSV(rows) {
+    const header = ['Business Unit', 'Region', 'Budget (Local CCY)', 'Actuals (Local CCY)', 'Root Cause'];
+    const lines = [header.join(',')];
+    rows.forEach(r => {
+      lines.push([
+        csvEscape(r.bu),
+        csvEscape(r.region),
+        r.budget,
+        r.actuals,
+        csvEscape(r.root),
+      ].join(','));
+    });
+    return lines.join('\n');
+  }
+
+  function mapCsvRowToData(row) {
+    const bu = row['Business Unit'] || row.bu || '';
+    const region = row['Region'] || row.region || REGIONS[0].label;
+    const budget = Number(row['Budget (Local CCY)'] ?? row.budget ?? 0) || 0;
+    const actuals = Number(row['Actuals (Local CCY)'] ?? row.actuals ?? 0) || 0;
+    const root = row['Root Cause'] || row.root || ROOT_CAUSES[0];
+    return { bu, region, budget, actuals, root };
+  }
+
+  async function loadRegions() {
+    try {
+      const res = await fetch(REGIONS_CSV);
+      if (!res.ok) return;
+      const parsed = parseCSV(await res.text());
+      if (parsed.length) {
+        REGIONS = parsed.map(r => ({
+          label: r.Region || r.label,
+          fx: Number(r['FX Rate'] ?? r.fx) || 1,
+          ccy: r.Currency || r.ccy || 'USD',
+        }));
+      }
+    } catch (_) { /* use defaults */ }
+  }
+
+  async function loadFromCsvFile() {
+    const res = await fetch(DATA_CSV);
+    if (!res.ok) throw new Error('Could not load ' + DATA_CSV);
+    const parsed = parseCSV(await res.text());
+    return parsed.map(mapCsvRowToData);
+  }
+
+  function loadFromLocalStorage() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      if (obj.regions) REGIONS = obj.regions;
+      lastSavedAt = obj.savedAt || null;
+      return obj.rows || null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function saveToLocalStorage() {
+    const payload = {
+      rows: tableData,
+      regions: REGIONS,
+      savedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    lastSavedAt = payload.savedAt;
+  }
+
+  function formatUSD(val) {
+    if (val == null || isNaN(val)) return '—';
+    const n = Number(val);
+    const prefix = n < 0 ? '-$' : '$';
+    return prefix + Math.abs(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
+  }
+
+  function getFX(regionLabel) {
+    const found = REGIONS.find(r => r.label === regionLabel);
+    return found ? found.fx : 1;
+  }
+
+  function getCCY(regionLabel) {
+    const found = REGIONS.find(r => r.label === regionLabel);
+    return found ? found.ccy : 'USD';
+  }
+
+  function computeRow(row) {
+    const fx = getFX(row.region);
+    const actualsUSD = (Number(row.actuals) || 0) * fx;
+    const budgetUSD = (Number(row.budget) || 0) * fx;
+    const fxImpact = actualsUSD - (Number(row.actuals) || 0);
+    const variance = actualsUSD - budgetUSD;
+    return { fxImpact, actualsUSD, budgetUSD, variance };
+  }
+
+  function buildRow(rowIdx, data) {
+    const regionOpts = REGIONS.map(r =>
+      `<option value="${r.label}" ${r.label === (data.region || REGIONS[0].label) ? 'selected' : ''}>${r.label}</option>`
+    ).join('');
+    const rootOpts = ROOT_CAUSES.map(r =>
+      `<option value="${r}" ${r === (data.root || ROOT_CAUSES[0]) ? 'selected' : ''}>${r}</option>`
+    ).join('');
+    return `<tr data-idx="${rowIdx}" class="group hover:bg-slate-50/80">
+      <td class="py-2.5 px-4"><input type="text" data-field="bu" class="w-full min-w-[120px] border-b border-transparent focus:border-slate-400 bg-transparent outline-none font-medium" value="${escapeAttr(data.bu || '')}" placeholder="Business unit" /></td>
+      <td class="py-2.5 px-4"><select data-field="region" class="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm">${regionOpts}</select></td>
+      <td class="py-2.5 px-4 text-right"><input type="number" data-field="budget" min="0" class="w-28 text-right border border-slate-200 rounded px-2 py-1 tabular-nums" value="${data.budget ?? ''}" /></td>
+      <td class="py-2.5 px-4 text-right"><input type="number" data-field="actuals" min="0" class="w-28 text-right border border-slate-200 rounded px-2 py-1 tabular-nums" value="${data.actuals ?? ''}" /></td>
+      <td class="py-2.5 px-4 text-right tabular-nums text-sm fx-impact"></td>
+      <td class="py-2.5 px-4 text-right tabular-nums text-sm actuals-usd font-medium"></td>
+      <td class="py-2.5 px-4 text-right tabular-nums text-sm font-semibold variance-cell"></td>
+      <td class="py-2.5 px-4"><select data-field="root" class="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-sm">${rootOpts}</select></td>
+      <td class="py-2.5 px-4 text-center">
+        <button type="button" class="removeRow text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition text-lg leading-none" title="Remove">&times;</button>
+      </td>
+    </tr>`;
+  }
+
+  function escapeAttr(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  }
+
+  function readRowFromDOM(rowEl, idx) {
+    return {
+      bu: rowEl.querySelector('[data-field="bu"]').value.trim(),
+      region: rowEl.querySelector('[data-field="region"]').value,
+      budget: Number(rowEl.querySelector('[data-field="budget"]').value) || 0,
+      actuals: Number(rowEl.querySelector('[data-field="actuals"]').value) || 0,
+      root: rowEl.querySelector('[data-field="root"]').value,
+    };
+  }
+
+  function renderTable() {
+    const tbody = document.getElementById('tableRows');
+    tbody.innerHTML = tableData.map((row, i) => buildRow(i, row)).join('');
+    attachRowEvents();
+    recalcAll();
+  }
+
+  function attachRowEvents() {
+    document.querySelectorAll('#tableRows tr').forEach((rowEl) => {
+      const idx = Number(rowEl.dataset.idx);
+      rowEl.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener('input', () => {
+          tableData[idx] = readRowFromDOM(rowEl, idx);
+          recalcAll();
+        });
+        el.addEventListener('change', () => {
+          tableData[idx] = readRowFromDOM(rowEl, idx);
+          recalcAll();
+        });
+      });
+      rowEl.querySelector('.removeRow').onclick = () => {
+        tableData.splice(idx, 1);
+        renderTable();
+      };
+    });
+  }
+
+  function updateVarianceChart(labels, values) {
+    const colors = values.map(v => v >= 0 ? CHART_POSITIVE : CHART_NEGATIVE);
+    const cfg = {
+      type: 'bar',
       data: {
-        labels: labels,
+        labels,
+        datasets: [{
+          label: 'Variance (USD)',
+          data: values,
+          backgroundColor: colors,
+          borderColor: colors,
+          borderWidth: 1,
+          borderRadius: 4,
+          maxBarThickness: 48,
+        }],
+      },
+      options: chartOptions(true),
+    };
+    if (!varianceChart) {
+      varianceChart = new Chart(document.getElementById('varianceChart'), cfg);
+    } else {
+      varianceChart.data = cfg.data;
+      varianceChart.options = cfg.options;
+      varianceChart.update();
+    }
+  }
+
+  function updateComparisonChart(labels, budgets, actuals) {
+    const cfg = {
+      type: 'bar',
+      data: {
+        labels,
         datasets: [
           {
-            label: "Variance (USD)",
-            data: data,
-            backgroundColor: colors,
-            borderRadius: 5,
+            label: 'Budget (USD)',
+            data: budgets,
+            backgroundColor: CHART_BUDGET,
+            borderColor: '#6b7280',
+            borderWidth: 1,
+            borderRadius: 4,
+            maxBarThickness: 36,
+          },
+          {
+            label: 'Actuals (USD)',
+            data: actuals,
+            backgroundColor: CHART_ACTUAL,
+            borderColor: '#0f172a',
+            borderWidth: 1,
+            borderRadius: 4,
+            maxBarThickness: 36,
           },
         ],
       },
-      options: {
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: function (context) {
-                let v = context.parsed.y;
-                return (v >= 0 ? "+" : "") + formatCCY(v, "USD");
-              }
-            }
-          }
-        },
-        responsive: true,
-        scales: {
-          x: {
-            grid: { display: false }
-          },
-          y: {
-            grid: { color: "#E2E8F0", drawBorder: false },
-            ticks: { callback: v => formatCCY(v, "USD") }
-          }
-        }
-      }
-    });
-  } else {
-    varianceChart.data.labels = labels;
-    varianceChart.data.datasets[0].data = data;
-    varianceChart.data.datasets[0].backgroundColor = colors;
-    varianceChart.update();
+      options: chartOptions(false),
+    };
+    if (!comparisonChart) {
+      comparisonChart = new Chart(document.getElementById('comparisonChart'), cfg);
+    } else {
+      comparisonChart.data = cfg.data;
+      comparisonChart.update();
+    }
   }
-}
 
-// Initialize table and chart on page load
-renderTable();
+  function chartOptions(signedY) {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1a1f2e',
+          callbacks: {
+            label(ctx) {
+              const v = signedY ? ctx.parsed.y : ctx.parsed.y;
+              return ' ' + ctx.dataset.label + ': ' + formatUSD(v);
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { color: '#64748b', font: { size: 11 } },
+        },
+        y: {
+          grid: { color: '#e2e8f0' },
+          ticks: {
+            color: '#64748b',
+            font: { size: 11 },
+            callback(v) {
+              if (Math.abs(v) >= 1e6) return (v < 0 ? '-' : '') + '$' + (Math.abs(v) / 1e6).toFixed(1) + 'M';
+              if (Math.abs(v) >= 1e3) return (v < 0 ? '-' : '') + '$' + (Math.abs(v) / 1e3).toFixed(0) + 'K';
+              return formatUSD(v);
+            },
+          },
+          ...(signedY ? {} : { beginAtZero: true }),
+        },
+      },
+    };
+  }
+
+  function recalcAll() {
+    let totBudget = 0, totActuals = 0, totVariance = 0;
+    const labels = [], variances = [], budgets = [], actualsUSD = [];
+
+    document.querySelectorAll('#tableRows tr').forEach((rowEl, idx) => {
+      const row = tableData[idx] || readRowFromDOM(rowEl, idx);
+      tableData[idx] = row;
+      const { fxImpact, actualsUSD: actUSD, budgetUSD, variance } = computeRow(row);
+
+      rowEl.querySelector('.fx-impact').textContent = formatUSD(fxImpact);
+      rowEl.querySelector('.actuals-usd').textContent = formatUSD(actUSD);
+      const vCell = rowEl.querySelector('.variance-cell');
+      vCell.textContent = (variance >= 0 ? '+' : '') + formatUSD(variance);
+      vCell.className = 'py-2.5 px-4 text-right tabular-nums text-sm font-semibold variance-cell ' +
+        (variance >= 0 ? 'text-slate-900' : 'text-slate-500');
+
+      totBudget += budgetUSD;
+      totActuals += actUSD;
+      totVariance += variance;
+      labels.push(row.bu || 'Unit ' + (idx + 1));
+      variances.push(variance);
+      budgets.push(budgetUSD);
+      actualsUSD.push(actUSD);
+    });
+
+    const kpiV = document.getElementById('kpi-variance');
+    if (totVariance >= 0) {
+      kpiV.textContent = '+' + formatUSD(totVariance);
+      document.getElementById('kpi-variance-label').textContent = 'Net favourable variance';
+    } else {
+      kpiV.textContent = formatUSD(totVariance);
+      document.getElementById('kpi-variance-label').textContent = 'Net unfavourable variance';
+    }
+    document.getElementById('kpi-budget').textContent = formatUSD(totBudget);
+    document.getElementById('kpi-actuals').textContent = formatUSD(totActuals);
+
+    updateVarianceChart(labels, variances);
+    updateComparisonChart(labels, budgets, actualsUSD);
+  }
+
+  function downloadBlob(content, filename, mime) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportCSV() {
+    downloadBlob(rowsToCSV(tableData), 'consolidation_export.csv', 'text/csv;charset=utf-8');
+    showStatus('CSV downloaded. Upload to data/consolidation.csv in GitHub to update the live site for everyone.', 'success');
+  }
+
+  function exportHTML() {
+    document.querySelectorAll('#tableRows tr').forEach((rowEl, idx) => {
+      tableData[idx] = readRowFromDOM(rowEl, idx);
+    });
+    recalcAll();
+    saveToLocalStorage();
+    const embedded = JSON.stringify({ rows: tableData, regions: REGIONS, exportedAt: new Date().toISOString() });
+    const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    const withData = html.replace(
+      '<script>\n(function () {',
+      '<script>window.__FLUX_EMBEDDED__ = ' + embedded + ';\n</script>\n<script>\n(function () {'
+    );
+    downloadBlob(withData, 'flux_dashboard_report.html', 'text/html;charset=utf-8');
+    showStatus('Standalone HTML report downloaded (includes your current data).', 'success');
+  }
+
+  async function init() {
+    await loadRegions();
+    if (window.__FLUX_EMBEDDED__ && window.__FLUX_EMBEDDED__.rows) {
+      tableData = window.__FLUX_EMBEDDED__.rows;
+      if (window.__FLUX_EMBEDDED__.regions) REGIONS = window.__FLUX_EMBEDDED__.regions;
+      showStatus('Loaded embedded data from exported HTML report.', 'success');
+    } else {
+    const stored = loadFromLocalStorage();
+    if (stored && stored.length) {
+      tableData = stored;
+      showStatus('Loaded saved data from this browser' + (lastSavedAt ? ' (saved ' + new Date(lastSavedAt).toLocaleString() + ')' : '') + '. Click Reset from CSV to reload repo defaults.', 'success');
+    } else {
+      try {
+        tableData = await loadFromCsvFile();
+        showStatus('Loaded data from ' + DATA_CSV + '. Use Save to keep edits in this browser.', 'success');
+      } catch (e) {
+        tableData = [
+          { bu: 'EMEA Sales', region: 'EMEA', budget: 4000000, actuals: 4700000, root: 'Volume' },
+          { bu: 'APAC Services', region: 'APAC', budget: 3500000, actuals: 2700000, root: 'Price' },
+          { bu: 'Americas Ops', region: 'Americas', budget: 2500000, actuals: 3500000, root: 'FX' },
+        ];
+        showStatus('Could not fetch CSV (open via local server or GitHub Pages). Using sample data.', 'error');
+      }
+    }
+    }
+    renderTable();
+
+    document.getElementById('btnSave').onclick = () => {
+      document.querySelectorAll('#tableRows tr').forEach((rowEl, idx) => {
+        tableData[idx] = readRowFromDOM(rowEl, idx);
+      });
+      saveToLocalStorage();
+      downloadBlob(rowsToCSV(tableData), 'consolidation_saved.csv', 'text/csv;charset=utf-8');
+      const btn = document.getElementById('btnSave');
+      btn.classList.add('save-pulse');
+      setTimeout(() => btn.classList.remove('save-pulse'), 2000);
+      showStatus('Saved to browser storage and downloaded consolidation_saved.csv.', 'success');
+    };
+
+    document.getElementById('btnReset').onclick = async () => {
+      if (!confirm('Reset all rows from data/consolidation.csv? Unsaved browser changes will be lost.')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      try {
+        tableData = await loadFromCsvFile();
+        showStatus('Reset complete — loaded from ' + DATA_CSV, 'success');
+      } catch (e) {
+        showStatus('Reset failed: ' + e.message, 'error');
+        return;
+      }
+      renderTable();
+    };
+
+    document.getElementById('btnExportCsv').onclick = exportCSV;
+    document.getElementById('btnExportHtml').onclick = exportHTML;
+    document.getElementById('addRow').onclick = () => {
+      tableData.push({ bu: '', region: REGIONS[0].label, budget: 0, actuals: 0, root: ROOT_CAUSES[0] });
+      renderTable();
+    };
+  }
+
+  init();
+})();
 </script>
 </body>
 </html>
