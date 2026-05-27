@@ -1,39 +1,52 @@
-# Flux Analysis Dashboard
+# Flux Analysis Tracker (Dynamic)
 
-A static **consolidation & variance dashboard** for financial flux analysis. Edit data in the browser, view black/grey impact charts, and export CSV or standalone HTML reports.
+React frontend + Python (Flask) backend for an editable consolidation dashboard with black/grey bar charts.
 
-## Live demo
+## Architecture
 
-After enabling GitHub Pages, open:
+- `frontend/` -> React + Vite UI
+- `backend/` -> Flask API
+- `data/` -> CSV data files persisted by backend
 
-`https://<your-username>.github.io/Flux_analysis_tracker/`
+## Features
 
-## Quick start
+- Load data from backend CSV files
+- Edit/add/delete rows in UI
+- Save changes to server (`POST /api/consolidation`)
+- Positive/negative variance bar chart
+- Budget vs Actuals black/grey grouped bar chart
+- Download CSV and HTML report from frontend
 
-1. Clone the repo  
-2. Run a local server: `python -m http.server 8080`  
-3. Open `http://localhost:8080`  
+## Free hosting target
 
-## Data files
+- Frontend: GitHub Pages
+- Backend: PythonAnywhere (free tier)
 
-| File | Purpose |
-|------|---------|
-| `data/consolidation.csv` | Business units, budgets, actuals, root cause |
-| `data/regions.csv` | FX rates per region |
+## Quick local run
 
-## Actions in the app
+Backend:
 
-- **Save** — Stores data in your browser + downloads CSV  
-- **Reset from CSV** — Reloads repo defaults  
-- **Download CSV** — Audit export  
-- **Download HTML Report** — Offline snapshot with embedded data  
+```bash
+cd backend
+pip install -r requirements.txt
+python app.py
+```
 
-## Deploy to GitHub Pages (free)
+Frontend:
 
-See **[PROMPT.md](./PROMPT.md)** for full setup, CSV format, chart behaviour, and troubleshooting.
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-**Short version:** Settings → Pages → Deploy from branch `main` → root `/` → push repo with `.nojekyll` included.
+Set `frontend/.env`:
 
-## License
+```env
+VITE_API_BASE=http://127.0.0.1:8000/api
+VITE_BASE_PATH=/
+```
 
-Use freely for internal reporting and analysis.
+## Deployment guide
+
+Full step-by-step setup is in `PROMPT.md`.

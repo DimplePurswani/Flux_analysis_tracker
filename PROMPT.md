@@ -1,197 +1,194 @@
-# Flux Analysis Dashboard — Creation & Deployment Guide
+# Flux Dynamic App - Build + Deploy Guide
 
-This document describes how the web app was built, how it works, and how to host it for **free on GitHub Pages**.
+This repo has been converted from static HTML to a dynamic architecture:
 
----
-
-## What the app does
-
-| Feature | Description |
-|--------|-------------|
-| **Data source** | `data/consolidation.csv` (rows) and `data/regions.csv` (FX rates) |
-| **Edit in browser** | Table rows are editable; charts and KPIs update live |
-| **Save** | Writes to **browser localStorage** and downloads `consolidation_saved.csv` |
-| **Reset** | Reloads defaults from `data/consolidation.csv` in the repo |
-| **Export CSV** | Audit-ready CSV download |
-| **Export HTML** | Standalone report with data embedded (works offline) |
-| **Charts** | Black/grey bar charts: variance (+/−) and budget vs actuals |
+- **Frontend**: React (Vite) in `frontend/`
+- **Backend**: Flask API in `backend/`
+- **Data**: CSV files in `data/` (read/write by backend)
+- **Free hosting target**:
+  - Frontend on **GitHub Pages**
+  - Backend on **PythonAnywhere**
 
 ---
 
-## Project structure
+## 1) Backend API (Flask)
 
-```
-Flux_analysis_tracker/
-├── index.html              # Main app (Chart.js + Tailwind CDN)
-├── data/
-│   ├── consolidation.csv   # Editable business-unit data
-│   └── regions.csv         # Region FX rates and currencies
-├── .nojekyll               # Required for GitHub Pages (allows data/ paths)
-├── PROMPT.md               # This file
-└── README.md               # Short repo overview
-```
+### Files
 
----
+- `backend/app.py`
+- `backend/wsgi.py`
+- `backend/requirements.txt`
 
-## CSV formats
+### Endpoints
 
-### `data/consolidation.csv`
+- `GET /api/health`
+- `GET /api/regions`
+- `GET /api/consolidation`
+- `POST /api/consolidation` (save edited rows to CSV)
+- `GET /api/consolidation.csv`
 
-```csv
-Business Unit,Region,Budget (Local CCY),Actuals (Local CCY),Root Cause
-EMEA Sales,EMEA,4000000,4700000,Volume
-```
+### Data persistence
 
-| Column | Description |
-|--------|-------------|
-| Business Unit | Name shown on charts |
-| Region | Must match a region in `regions.csv` |
-| Budget (Local CCY) | Budget in local currency |
-| Actuals (Local CCY) | Actuals in local currency |
-| Root Cause | One of: FX, Volume, Price, Timing |
+The backend writes directly to:
 
-### `data/regions.csv`
+- `data/consolidation.csv`
+- `data/regions.csv`
 
-```csv
-Region,FX Rate,Currency
-Americas,1.00,USD
-EMEA,1.12,EUR
-```
+Environment variables supported:
+
+- `DATA_DIR` (default: `../data`)
+- `CONSOLIDATION_FILE` (default: `consolidation.csv`)
+- `REGIONS_FILE` (default: `regions.csv`)
+- `ALLOWED_ORIGINS` (for CORS)
 
 ---
 
-## Charts (black & grey)
+## 2) Frontend (React)
 
-1. **Variance impact** — One bar per business unit.  
-   - **Black** (`#1a1f2e`) = favourable (positive) variance  
-   - **Grey** (`#9ca3af`) = unfavourable (negative) variance  
+### Files
 
-2. **Budget vs actuals (USD)** — Grouped bars.  
-   - **Grey** = budget (USD)  
-   - **Black** = actuals (USD)  
+- `frontend/src/App.jsx`
+- `frontend/src/App.css`
+- `frontend/src/index.css`
+- `frontend/.env.example`
+- `frontend/vite.config.js`
 
-Variance is computed as: `(Actuals × FX) − (Budget × FX)`.
+### Core behavior
 
----
-
-## Save behaviour (important)
-
-GitHub Pages serves **static files only**. The browser cannot write back to your GitHub repo without authentication.
-
-| Action | What happens |
-|--------|----------------|
-| **Save** | Data stored in **localStorage** (this device/browser) + CSV file downloaded |
-| **Reset from CSV** | Clears localStorage and reloads `data/consolidation.csv` from the site |
-| **Update live site for everyone** | Commit an updated `data/consolidation.csv` to the repo and push |
-
-To share edits with a team: download CSV after Save → commit to `data/consolidation.csv` → push to GitHub.
+- Loads regions + consolidation rows from backend
+- Editable table with add/remove
+- KPIs auto-recomputed
+- Chart.js bar charts:
+  - **Variance impact** (black for positive, grey for negative)
+  - **Budget vs Actuals** (grey budget, black actuals)
+- Save to server via `POST /api/consolidation`
+- Download CSV and downloadable HTML report
 
 ---
 
-## Host on GitHub Pages (free)
+## 3) Local development
 
-### 1. Create / use a GitHub repository
-
-Push this folder to a repo, e.g. `your-username/Flux_analysis_tracker`.
-
-### 2. Enable GitHub Pages
-
-1. Open the repo on GitHub → **Settings** → **Pages**
-2. Under **Build and deployment** → **Source**: choose **Deploy from a branch**
-3. **Branch**: `main` (or `master`) → folder **`/ (root)`**
-4. Save. After 1–2 minutes your site is live at:
-
-   `https://<username>.github.io/<repo-name>/`
-
-   Example: `https://dimple.github.io/Flux_analysis_tracker/`
-
-### 3. Verify data loads
-
-Open the URL. You should see: *“Loaded data from data/consolidation.csv”*.
-
-If CSV fails (e.g. opening `index.html` as `file://`), use GitHub Pages or a local server:
+### Backend
 
 ```bash
-# Python
-python -m http.server 8080
-# Then open http://localhost:8080
+cd backend
+pip install -r requirements.txt
+python app.py
 ```
 
-### 4. Optional: custom domain
+Backend runs on `http://127.0.0.1:8000`.
 
-In **Pages** settings, add your domain and a `CNAME` file in the repo root.
-
----
-
-## Local development
+### Frontend
 
 ```bash
-cd Flux_analysis_tracker
-python -m http.server 8080
+cd frontend
+npm install
+cp .env.example .env
 ```
 
-Open `http://localhost:8080` — `fetch()` needs HTTP, not `file://`.
+Set:
 
----
-
-## Export standalone HTML
-
-1. Edit data in the dashboard  
-2. Click **Download HTML Report**  
-3. Open the downloaded file in any browser — data is embedded in `window.__FLUX_EMBEDDED__`  
-4. Share the HTML file by email or Drive (no server required)
-
----
-
-## Tech stack
-
-- **HTML / CSS / JavaScript** (no build step)
-- **Tailwind CSS** (CDN)
-- **Chart.js** (CDN)
-- **GitHub Pages** (hosting)
-
----
-
-## Prompt used to build this app
-
-Use this prompt in an AI assistant to recreate or extend the project:
-
+```env
+VITE_API_BASE=http://127.0.0.1:8000/api
+VITE_BASE_PATH=/
 ```
-Build a static Flux Analysis / consolidation dashboard web app for free GitHub Pages hosting:
 
-1. Store data in data/consolidation.csv and data/regions.csv.
-2. Load CSV on startup; allow inline table editing with live chart updates.
-3. Save: localStorage + download CSV (document that static hosting cannot write to GitHub without commit).
-4. Reset button to reload repo CSV.
-5. Export audit CSV and standalone HTML with embedded JSON data.
-6. Professional UI: dark header, white cards, slate background.
-7. Two Chart.js bar charts in black and grey only:
-   - Variance bars: black for positive impact, grey for negative.
-   - Grouped bars: grey for budget USD, black for actuals USD.
-8. KPIs: total variance, total budget USD, total actuals USD.
-9. Include PROMPT.md with deployment steps and .nojekyll for GitHub Pages.
+Run:
+
+```bash
+npm run dev
 ```
 
 ---
 
-## Updating production data
+## 4) Deploy backend to PythonAnywhere (free)
 
-1. Edit in the app → **Save** → get `consolidation_saved.csv`  
-2. Replace `data/consolidation.csv` with that file (or merge manually)  
-3. `git add data/consolidation.csv && git commit -m "Update consolidation data" && git push`  
-4. GitHub Pages redeploys automatically; new visitors get updated CSV (unless they have old localStorage — they can click **Reset from CSV**)
+1. Create PythonAnywhere account
+2. Open a **Bash console**
+3. Clone repo:
+
+   ```bash
+   git clone https://github.com/<your-username>/Flux_analysis_tracker.git
+   cd Flux_analysis_tracker/backend
+   ```
+
+4. Create virtualenv and install:
+
+   ```bash
+   mkvirtualenv fluxenv --python=python3.10
+   pip install -r requirements.txt
+   ```
+
+5. Create a new **Web app** (Manual configuration -> Flask)
+6. In **WSGI configuration file**, replace with:
+
+   ```python
+   import os
+   import sys
+
+   project_home = '/home/<your-username>/Flux_analysis_tracker/backend'
+   if project_home not in sys.path:
+       sys.path.insert(0, project_home)
+
+   os.environ['DATA_DIR'] = '/home/<your-username>/Flux_analysis_tracker/data'
+   os.environ['ALLOWED_ORIGINS'] = 'https://<your-github-username>.github.io'
+
+   from app import app as application
+   ```
+
+7. Reload web app in PythonAnywhere dashboard
+8. Verify:
+   - `https://<your-username>.pythonanywhere.com/api/health`
 
 ---
 
-## Troubleshooting
+## 5) Deploy frontend to GitHub Pages
 
-| Issue | Fix |
-|-------|-----|
-| CSV not loading | Use GitHub Pages URL, not `file://` |
-| Old data after deploy | Click **Reset from CSV** or clear site data in browser |
-| Charts empty | Ensure at least one row with numeric budget/actuals |
-| 404 on `data/*.csv` | Ensure `.nojekyll` exists in repo root |
+Use GitHub Actions or manual deploy. Fast manual method:
+
+1. In local repo:
+
+   ```bash
+   cd frontend
+   npm install
+   ```
+
+2. Create `.env.production`:
+
+   ```env
+   VITE_API_BASE=https://<pythonanywhere-username>.pythonanywhere.com/api
+   VITE_BASE_PATH=/Flux_analysis_tracker/
+   ```
+
+3. Build:
+
+   ```bash
+   npm run build
+   ```
+
+4. Publish `frontend/dist` to GitHub Pages (branch `gh-pages` or `/docs` strategy)
+5. In GitHub repo settings, set Pages source to deployed output
+6. Open:
+   - `https://<github-username>.github.io/Flux_analysis_tracker/`
 
 ---
 
-*Last updated: May 2026*
+## 6) Important notes
+
+- GitHub Pages is static; persistence is provided by PythonAnywhere backend.
+- CORS must allow your GitHub Pages origin in `ALLOWED_ORIGINS`.
+- PythonAnywhere free tier may sleep when idle.
+
+---
+
+## Prompt used to generate this architecture
+
+```text
+Build a dynamic Flux Analysis application with:
+1) React frontend (Vite) hosted on GitHub Pages,
+2) Python Flask backend hosted on PythonAnywhere free tier,
+3) CSV data persistence in data/consolidation.csv and data/regions.csv.
+Include editable table, add/remove, save to backend, auto-updating KPIs,
+black/grey bar charts for positive/negative variance and budget vs actuals,
+CSV + HTML report download, and full deployment documentation.
+```

@@ -211,8 +211,8 @@
 
   async function loadRegions() {
     try {
-      const res = await fetch(REGIONS_CSV);
-      if (!res.ok) return;
+      const res = await fetchFirstAvailable([REGIONS_CSV, './' + REGIONS_CSV]);
+      if (!res) return;
       const parsed = parseCSV(await res.text());
       if (parsed.length) {
         REGIONS = parsed.map(r => ({
@@ -225,8 +225,11 @@
   }
 
   async function loadFromCsvFile() {
-    const res = await fetch(DATA_CSV);
-    if (!res.ok) throw new Error('Could not load ' + DATA_CSV);
+    const tried = buildCsvCandidateUrls(DATA_CSV);
+    const res = await fetchFirstAvailable(tried);
+    if (!res) {
+      throw new Error('Could not load CSV. Tried: ' + tried.join(' , '));
+    }
     const parsed = parseCSV(await res.text());
     return parsed.map(mapCsvRowToData);
   }
@@ -538,7 +541,7 @@
           { bu: 'APAC Services', region: 'APAC', budget: 3500000, actuals: 2700000, root: 'Price' },
           { bu: 'Americas Ops', region: 'Americas', budget: 2500000, actuals: 3500000, root: 'FX' },
         ];
-        showStatus('Could not fetch CSV (open via local server or GitHub Pages). Using sample data.', 'error');
+        showStatus('CSV load failed. The page is still editable (sample data). ' + e.message, 'error');
       }
     }
     }
@@ -579,6 +582,33 @@
 
   init();
 })();
+
+  function buildCsvCandidateUrls(relativePath) {
+    const urls = new Set();
+    urls.add(relativePath);
+    urls.add('./' + relativePath.replace(/^[./]+/, ''));
+
+    // GitHub Pages often serves from /<repo>/, so also try prefixing the first path segment.
+    // Example: /Flux_analysis_tracker/index.html => try /Flux_analysis_tracker/data/file.csv
+    try {
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      if (parts.length) {
+        const repoPrefix = '/' + parts[0] + '/';
+        urls.add(repoPrefix + relativePath.replace(/^[./]+/, ''));
+      }
+    } catch (_) {}
+    return Array.from(urls);
+  }
+
+  async function fetchFirstAvailable(urls) {
+    for (const u of urls) {
+      try {
+        const res = await fetch(u, { cache: 'no-store' });
+        if (res && res.ok) return res;
+      } catch (_) {}
+    }
+    return null;
+  }
 </script>
 </body>
 </html>
